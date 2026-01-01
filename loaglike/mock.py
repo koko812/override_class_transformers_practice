@@ -13,9 +13,8 @@ frame_cnt = 0
 
 while running:
     screen.fill((255,0,0))
-    #3これがないと赤くならない
-    pg.display.flip()
-    clock.tick(50)
+    pg.display.flip() #これがないと赤くならない
+    clock.tick(100)
 
     frame_cnt += 1
     if frame_cnt>100:
