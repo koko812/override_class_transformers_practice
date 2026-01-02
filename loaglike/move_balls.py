@@ -25,9 +25,22 @@ while running:
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
-        if event.type == pg.KEYDOWN:
-            if event.key == pg.K_q:
-                running = False
+        # if event.type == pg.KEYDOWN:
+            # print(event.key)
+
+            # 動くのは動くけど，押した瞬間しか動かない
+            # if event.key == pg.K_UP:
+            #     print("up")
+            #     cy -= 1
+            # elif event.key == pg.K_DOWN:
+            #     print("down")
+            #     cy += 1
+            # elif event.key == pg.K_LEFT:
+            #     print("down")
+            #     cx -= 1
+            # elif event.key == pg.K_RIGHT:
+            #     print("down")
+            #     cx += 1
 
     speed = 0.5 
 
@@ -67,11 +80,3 @@ print("display ended")
 # とりあえず，四角の画面が出てきて，赤い丸が出てくるようにしよう
 # あと，キーボードの受付がめんどくさいので，それは早めに設定しておこう，上下左右に動けるようにしよう
 # スペースキーで剣を振れる感じにしよう，で，ターン制で敵が動ける or こっちの攻撃に応じて動くようにしてみよう
-
-# アタックでいきなり剣を振るのは難しいので，体当たりのモーションをつけたりしたらいいかも？
-# それでも，ボスの方向とかを検知する必要があるので，普通に難しいと思うし，ちゃんとクラス設計をしないとまともに動かないと思うけど．
-
-# タイトル画面とかを作って，一通りシーケンスを通したいところなんだけど，
-# そこで，デバッグモードとそうじゃないモードを分けられるようにすると便利だしちゃんと勉強になりますね
-
-# ちなみに，クロックがないとどうなるんだろうという気になりはちょっとだけ存在している．
