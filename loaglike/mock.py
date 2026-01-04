@@ -151,7 +151,7 @@ while runnning:
             if event.key == pg.K_DOWN:
                 mino["pos"][1] += 1 
             if event.key == pg.K_SPACE:
-                mino["rotate"] += 1
+                mino["rotate"] = 1
         if event.type == pg.QUIT:
             runnning = False
                 
