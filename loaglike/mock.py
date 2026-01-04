@@ -1,6 +1,7 @@
 import pygame as pg
 import colorsys
 import random
+import copy
 
 SCREEN_WIDTH = 600
 SCREEN_HEIGHT = 600
@@ -65,14 +66,14 @@ def v_matmul(A,v):
 
 def rotate(shape, rot):
     rotate_mat = [[0,-1], [1,0]]
+    r_shape = copy.deepcopy(shape)
     for i in range(rot):
         for j in range(len(shape)):
-            shape[j] = v_matmul(rotate_mat, shape[j])
+            r_shape[j] = v_matmul(rotate_mat, r_shape[j])
             # ．．．流石にこの matmul とかをメインループにぶち込んで一個ずつ描く元気はねえ
             # でもインライン化とはそういうことをしているのかもしれない
-    print(shape)
             
-    return shape
+    return r_shape
 
 def get_mino_top(mino):
     top = 0
@@ -151,7 +152,9 @@ while runnning:
             if event.key == pg.K_DOWN:
                 mino["pos"][1] += 1 
             if event.key == pg.K_SPACE:
-                mino["rotate"] = 1
+                mino["rotate"] += 1
+                #... まじでなんでゲッダンするんすか？？？．．．
+                # 参照が切れてなかったので，アウトっぽい話でした，バカかな？
         if event.type == pg.QUIT:
             runnning = False
                 
