@@ -1,4 +1,6 @@
 import pygame as pg
+import colorsys
+import random
 
 SCREEN_WIDTH = 600
 SCREEN_HEIGHT = 600
@@ -11,86 +13,168 @@ clock = pg.time.Clock()
 runnning = True
 loop_cnt = 0
 
-# 初期化と何かの更新は分けた方がいいような気がする
-# というか，クラスにすれば管理しやすいのだと思う，react の state とかもそうなんだろうか
-grid_row_length = 4
-grid_states = [0] * grid_row_length ** 2
-grid_states[0] = 1
-grid_states[grid_row_length**2-1] = 3
-print(grid_states)
+minos_shapes = [[[0,-1],[0,1],[0,2]], # stick
+                [[1,0],[0,1],[0,2]], # L
+                [[1,0],[0,1],[1,1]], # block
+                [[1,0],[0,1],[-1,1]], # z
+                [[-1,0],[0,1],[1,1]], # 逆 z
+                [[-1,0],[1,0],[0,1]],] # T
 
-grid_left = 100
-grid_top = 100
-pane_size = 100
+row = 20
+col = 10
 
-player_pos = 0
 
-def draw_grid():
-    for i,s in enumerate(grid_states):
-        left = grid_left+pane_size*(i%grid_row_length)
-        top = grid_top+pane_size*(i//grid_row_length)
-        line_width = 4
-        outer_pane = pg.Rect(left, top, pane_size, pane_size)
-        inner_pane = pg.Rect(left+line_width//2, top+line_width//2, pane_size-line_width, pane_size-line_width)
-        pg.draw.rect(screen, (255,255,255), outer_pane)
+stage = None
+def init_stage():
+    global stage
+    stage = [[0]*(col+2) for i in range(row+1)]
+    stage[-1]=[9]*(col+2)
+    for i in range(len(stage)):
+        stage[i][0] = 9
+        stage[i][-1] = 9
 
-        if s == 3:
-            pg.draw.rect(screen, (0,255,0), inner_pane)
-        else:
-            pg.draw.rect(screen, (0,0,0), inner_pane)
+stage_height = 400
+stage_width = 200
+stage_top = (SCREEN_HEIGHT - stage_height)/2
+stage_left = (SCREEN_WIDTH - stage_width)/2
 
-        if i == player_pos:
-            cx = left + pane_size / 2
-            cy = top + pane_size / 2
-            radius = 30
-            pg.draw.circle(screen, (255,0,0), (cx,cy), radius)
+def new_mino(pos:tuple, rotate=0, movable=1, mino_type=0):
+    mino = {"pos": pos, "rotate": rotate, "movable": movable, "mino_type": mino_type}
+    return mino
 
-# left とかの辞書を作りたいもんだが，いまいちメリットがわからん
-# ので，とりあえず 1,2,3,4 でいいや
-# 境界チェックがちょっとめんどくさいかも？
-# センチネルの方が実装は早いかもしれん？慣れているならば
-# 1次元配列で操作するのが思ったよりも面倒かもしれないという話
+minos = []
 
-key_to_dir = {pg.K_LEFT:-1, pg.K_DOWN:grid_row_length, pg.K_RIGHT:1, pg.K_UP:-grid_row_length}
+def gen_mino():
+    global minos
+    mino_type = random.randint(0,5)
+    mino = new_mino([5,0], 0, 1, mino_type)
+    #print("gen_mino", mino)
+    minos.append(mino)
+    return mino
 
-# ちょっとこの関数は微妙な感が強い，がもうちょっと頑張りたい．
-# まあ少なくとも，grid を global で扱いたくない
-# player_pos と grid_state は分けて扱った方が良いのか？
-# ひとまず，bit_flag とかにしないと，ゴールマスを通った時に player_state に塗り替えられるので，
-# ひとまず分離する形にしたが，後々ループを player_pos と grid_state に二重に回す必要が出てくるとするとめんどくさい
-def move_player(event_key):
-    global grid_states
-    global player_pos
+def matmul(a,b):
+    # ゴミのような matmul で草
+    # ただちょっとこれの方が for ループよりは早いのかも？？
+    # この行列演算ミスでシステムが壊れたら流石にウケる
+    return [[a[0][0]*b[0][0]+a[0][1]*b[1][0], a[0][0]*b[0][1]+a[0][1]*b[1][1]],
+            [a[1][0]*b[0][0]+a[1][1]*b[1][0], a[1][0]*b[0][1]+a[1][1]*b[1][1]],]
+    # 今気づいたが，相手は別に行列じゃなかった件について．．
 
-    dir = key_to_dir[event_key]
-    #player_pos = grid_states.index(1)
-    if dir==-1:
-        if player_pos%(grid_row_length)==0:
-            dir = 0
-    if dir==grid_row_length:
-        if player_pos//(grid_row_length)==grid_row_length-1:
-            dir = 0
-    if dir==1:
-        if player_pos%(grid_row_length)==grid_row_length-1:
-            dir = 0
-    if dir==-grid_row_length:
-        if player_pos//(grid_row_length)==0:
-            dir = 0
+def v_matmul(A,v):
+    return [A[0][0]*v[0]+A[0][1]*v[1], A[1][0]*v[0]+A[1][1]*v[1]]
 
-    player_pos += dir
+def rotate(shape, rot):
+    rotate_mat = [[0,-1], [1,0]]
+    for i in range(rot):
+        for j in range(len(shape)):
+            shape[j] = v_matmul(rotate_mat, shape[j])
+            # ．．．流石にこの matmul とかをメインループにぶち込んで一個ずつ描く元気はねえ
+            # でもインライン化とはそういうことをしているのかもしれない
+    print(shape)
+            
+    return shape
+
+def get_mino_top(mino):
+    top = 0
+    y = mino["pos"][1]
+    blocks = rotate(minos_shapes[mino["mino_type"]], mino["rotate"]) # * rotate みたいな感じに入れたら多分しんどくない
+    for _,dy in blocks:
+        #print(y,dy)
+        if y+dy>top:
+            top = y+dy
+
+    return top
+        
+def fall_mino():
+    global minos
+    for mino in minos:
+        mx = mino["pos"][0]
+        my = mino["pos"][1]
+        ty = get_mino_top(mino)
+        # これ，mino_top の判定だけじゃ，すり抜けが必ず起こるのでアウトですね？
+        if mino["movable"]:
+            if stage[ty+1][mx] == 0:
+                mino["pos"][1] += 1
+                return False
+            else:
+                mino["movable"] = False
+                return True
+
+def mino_show():
+    init_stage()
+    for mino in minos:
+        x,y = mino["pos"]
+        s = mino["mino_type"]
+        stage[y][x] = s
+        shape = rotate(minos_shapes[s], mino["rotate"])
+        for dcod in shape:
+            dx,dy = dcod
+            stage[y+dy][x+dx] = s
+        # x,y 座標が反転していたので死んでください
+        # これをうまく扱う方法，ないっすかね？
+        # stage の配列をそのまま扱ってるのがまずいのかもしれない？？
+        # まあなんにせよ，ちょっとまともになったのでハッピーですよという話，いい話
+        # あとは rotate の判定ですな，それと，move に関しても流石に愚直すぎなので，チェックはいれたい
+
+        # このままだと，rotate を何個も入れる必要が出てきて多分面倒なのでどうにかしたい
+
+def draw():
+    pane_size = stage_width/10
+    rect = pg.Rect(0,0,pane_size,pane_size)
+    for i,row in enumerate(stage):
+        for j,n in enumerate(row):
+            rect_x = stage_left+j*pane_size - pane_size/2
+            rect_y = stage_top+i*pane_size - pane_size/2
+            rect_pos = (rect_x,rect_y)
+            rect.topleft = rect_pos
+
+            if n == 9:
+                pg.draw.rect(screen, (128,128,128), rect)
+            elif n == 0:
+                pg.draw.rect(screen, (0,0,0), rect)
+            else:
+                color = colorsys.hsv_to_rgb((n-1)*0.15,0.8,0.8)
+                color = tuple(int(x*255) for x in color)
+                pg.draw.rect(screen, color, rect)
+        
+init_stage()
+runnning = True
+dropped = True
 
 while runnning:
     for event in pg.event.get():
         if event.type == pg.KEYDOWN:
-            move_player(event.key)
+            if event.key == pg.K_LEFT:
+                mino["pos"][0] -= 1
+            if event.key == pg.K_RIGHT:
+                mino["pos"][0] += 1
+            if event.key == pg.K_DOWN:
+                mino["pos"][1] += 1 
+            if event.key == pg.K_SPACE:
+                mino["rotate"] += 1
+        if event.type == pg.QUIT:
+            runnning = False
+                
 
-    screen.fill((0,0,255))
-    draw_grid()
-    pg.display.flip() #これは必須（2回目）
+    screen.fill((0,0,0))
+    mino_show()
+    draw()
+    pg.display.flip()
+
+    if dropped:
+        mino = gen_mino()
+        dropped = False
+
+    if loop_cnt%10 == 0:
+        dropped = fall_mino()
 
     clock.tick(30)
-    if loop_cnt == 300:
+    if loop_cnt == 600:
         runnning = False
     loop_cnt+=1
 
 print("end")
+
+# 俺はテトリスの本質を分かってなかったようだ
+# 完全に落ち切ったタイミングで次のミノが落ちてくるということを分かってなかったという，
+# 圧倒的無知蒙昧，一回転生したほうがいいんじゃない？
